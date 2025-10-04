@@ -98,6 +98,25 @@
             box-shadow: 0 2px 8px rgba(255, 107, 107, 0.5);
         }
         
+        /* 法的リンク */
+        .legal-links {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .legal-link {
+            color: #00ffff;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .legal-link:hover {
+            color: #ffffff;
+            text-shadow: 0 0 5px #00ffff;
+        }
+        
         /* スマホ表示の調整 */
         @media (max-width: 768px) {
             .game-container {
@@ -115,6 +134,11 @@
                 padding: 12px 20px;
                 min-width: 50px;
                 min-height: 50px;
+            }
+            
+            .legal-link {
+                display: block;
+                margin: 10px 0;
             }
         }
     </style>
@@ -140,6 +164,11 @@
             <p>🎮 操作方法:</p>
             <p>PC: A/Dキー: 移動 | スペースキー: 発射 | マウスクリック: 発射</p>
             <p>スマホ: タッチボタンで操作</p>
+        </div>
+        
+        <div class="legal-links">
+            <a href="privacy.html" class="legal-link">プライバシーポリシー</a>
+            <a href="terms.html" class="legal-link">利用規約</a>
         </div>
     </div>
 
