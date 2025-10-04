@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スペースインベーダー - Web版</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(180deg, #000428 0%, #004e92 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        .game-container {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+        }
+        
+        h1 {
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+            margin-bottom: 10px;
+        }
+        
+        #gameCanvas {
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            background: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+        
+        .controls {
+            color: #fff;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        
+        .score {
+            color: #00ff00;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        /* タッチコントロール */
+        .touch-controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            gap: 20px;
+        }
+        
+        .movement-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .action-controls {
+            display: flex;
+        }
+        
+        .control-btn {
+            background: linear-gradient(45deg, #00ffff, #0080ff);
+            border: 2px solid #00ffff;
+            border-radius: 50px;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            padding: 15px 25px;
+            cursor: pointer;
+            user-select: none;
+            box-shadow: 0 4px 15px rgba(0, 255, 255, 0.3);
+            transition: all 0.2s ease;
+            min-width: 60px;
+            min-height: 60px;
+        }
+        
+        .control-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 8px rgba(0, 255, 255, 0.5);
+        }
+        
+        .shoot-btn {
+            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+            border-color: #ff6b6b;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+        
+        .shoot-btn:active {
+            box-shadow: 0 2px 8px rgba(255, 107, 107, 0.5);
+        }
+        
+        /* スマホ表示の調整 */
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 10px;
+            }
+            
+            #gameCanvas {
+                width: 100%;
+                max-width: 400px;
+                height: auto;
+            }
+            
+            .control-btn {
+                font-size: 18px;
+                padding: 12px 20px;
+                min-width: 50px;
+                min-height: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🚀 スペースインベーダー 🚀</h1>
+        <div class="score">スコア: <span id="score">0</span></div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <!-- タッチコントロール -->
+        <div class="touch-controls">
+            <div class="movement-controls">
+                <button id="leftBtn" class="control-btn">←</button>
+                <button id="rightBtn" class="control-btn">→</button>
+            </div>
+            <div class="action-controls">
+                <button id="shootBtn" class="control-btn shoot-btn">発射</button>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <p>🎮 操作方法:</p>
+            <p>PC: A/Dキー: 移動 | スペースキー: 発射 | マウスクリック: 発射</p>
+            <p>スマホ: タッチボタンで操作</p>
+        </div>
+    </div>
+
+    <script>
+        // ゲームの設定
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        
+        // ゲーム状態
+        let game = {
+            player: {
+                x: canvas.width / 2,
+                y: canvas.height - 50,
+                size: 30,
+                speed: 5
+            },
+            bullets: [],
+            enemies: [],
+            score: 0,
+            gameRunning: true
+        };
+        
+        // キーボード入力
+        const keys = {};
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+        
+        // マウスクリック
+        canvas.addEventListener('click', () => {
+            shootBullet();
+        });
+        
+        // タッチコントロール
+        const leftBtn = document.getElementById('leftBtn');
+        const rightBtn = document.getElementById('rightBtn');
+        const shootBtn = document.getElementById('shootBtn');
+        
+        // タッチイベント（スマホ対応）
+        leftBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            keys['a'] = true;
+        });
+        
+        leftBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            keys['a'] = false;
+        });
+        
+        rightBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            keys['d'] = true;
+        });
+        
+        rightBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            keys['d'] = false;
+        });
+        
+        shootBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            shootBullet();
+        });
+        
+        // マウスイベント（PC対応）
+        leftBtn.addEventListener('mousedown', () => {
+            keys['a'] = true;
+        });
+        
+        leftBtn.addEventListener('mouseup', () => {
+            keys['a'] = false;
+        });
+        
+        leftBtn.addEventListener('mouseleave', () => {
+            keys['a'] = false;
+        });
+        
+        rightBtn.addEventListener('mousedown', () => {
+            keys['d'] = true;
+        });
+        
+        rightBtn.addEventListener('mouseup', () => {
+            keys['d'] = false;
+        });
+        
+        rightBtn.addEventListener('mouseleave', () => {
+            keys['d'] = false;
+        });
+        
+        shootBtn.addEventListener('click', () => {
+            shootBullet();
+        });
+        
+        // 弾を発射
+        function shootBullet() {
+            game.bullets.push({
+                x: game.player.x,
+                y: game.player.y - game.player.size / 2,
+                speed: 8
+            });
+        }
+        
+        // エイリアンを描画
+        function drawAlien(x, y, alienType) {
+            const size = 25;
+            
+            if (alienType === 0) { // タコ型エイリアン
+                // 体
+                ctx.fillStyle = '#32CD32';
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 目
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(x - 6, y + 2, 4, 0, Math.PI * 2);
+                ctx.arc(x + 6, y + 2, 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 目の瞳孔
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                ctx.arc(x - 6, y + 2, 2, 0, Math.PI * 2);
+                ctx.arc(x + 6, y + 2, 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 触手
+                ctx.strokeStyle = '#228B22';
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 4; i++) {
+                    const tentacleX = x - 8 + i * 5;
+                    ctx.beginPath();
+                    ctx.moveTo(tentacleX, y - 8);
+                    ctx.lineTo(tentacleX + 1, y - 15);
+                    ctx.stroke();
+                }
+                
+            } else if (alienType === 1) { // カニ型エイリアン
+                // 体
+                ctx.fillStyle = '#FF4500';
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 眼柄
+                ctx.strokeStyle = '#DC143C';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(x - 6, y + 6);
+                ctx.lineTo(x - 10, y + 12);
+                ctx.moveTo(x + 6, y + 6);
+                ctx.lineTo(x + 10, y + 12);
+                ctx.stroke();
+                
+                // 目玉
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(x - 10, y + 12, 6, 0, Math.PI * 2);
+                ctx.arc(x + 10, y + 12, 6, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 瞳孔
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                ctx.arc(x - 10, y + 12, 3, 0, Math.PI * 2);
+                ctx.arc(x + 10, y + 12, 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // ハサミ
+                ctx.strokeStyle = '#DC143C';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(x - 12, y - 4);
+                ctx.lineTo(x - 16, y - 8);
+                ctx.moveTo(x + 12, y - 4);
+                ctx.lineTo(x + 16, y - 8);
+                ctx.stroke();
+                
+            } else { // イカ型エイリアン
+                // 体
+                ctx.fillStyle = '#4169E1';
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 頭のトサカ
+                ctx.fillStyle = '#191970';
+                ctx.beginPath();
+                ctx.moveTo(x - 8, y + 10);
+                ctx.lineTo(x + 8, y + 10);
+                ctx.lineTo(x, y + 16);
+                ctx.closePath();
+                ctx.fill();
+                
+                // 目
+                ctx.fillStyle = 'yellow';
+                ctx.beginPath();
+                ctx.arc(x - 6, y + 2, 5, 0, Math.PI * 2);
+                ctx.arc(x + 2, y + 2, 5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 瞳孔
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                ctx.arc(x - 6, y + 2, 2.5, 0, Math.PI * 2);
+                ctx.arc(x + 2, y + 2, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 触手
+                ctx.strokeStyle = '#191970';
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 4; i++) {
+                    const tentacleX = x - 6 + i * 4;
+                    ctx.beginPath();
+                    ctx.moveTo(tentacleX, y - 10);
+                    ctx.lineTo(tentacleX + 1, y - 16);
+                    ctx.stroke();
+                }
+            }
+        }
+        
+        // エイリアンを初期化
+        function setupEnemies() {
+            game.enemies = [];
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 8; col++) {
+                    game.enemies.push({
+                        x: col * 70 + 100,
+                        y: canvas.height - 150 - row * 60,
+                        type: row % 3,
+                        alive: true
+                    });
+                }
+            }
+        }
+        
+        // プレイヤーを描画
+        function drawPlayer() {
+            // プレイヤーの船体
+            ctx.fillStyle = '#00FF00';
+            ctx.fillRect(game.player.x - game.player.size/2, game.player.y - game.player.size/2, 
+                        game.player.size, game.player.size);
+            
+            // プレイヤーの詳細
+            ctx.fillStyle = '#32CD32';
+            ctx.fillRect(game.player.x - 10, game.player.y - 15, 20, 10);
+            ctx.fillRect(game.player.x - 5, game.player.y - 20, 10, 5);
+        }
+        
+        // 弾を描画
+        function drawBullets() {
+            ctx.fillStyle = '#FFFF00';
+            game.bullets.forEach(bullet => {
+                ctx.fillRect(bullet.x - 2, bullet.y - 10, 4, 20);
+            });
+        }
+        
+        // ゲームを更新
+        function update() {
+            if (!game.gameRunning) return;
+            
+            // プレイヤーの移動
+            if (keys['a'] && game.player.x > game.player.size/2) {
+                game.player.x -= game.player.speed;
+            }
+            if (keys['d'] && game.player.x < canvas.width - game.player.size/2) {
+                game.player.x += game.player.speed;
+            }
+            if (keys[' ']) {
+                shootBullet();
+            }
+            
+            // 弾の移動
+            game.bullets = game.bullets.filter(bullet => {
+                bullet.y -= bullet.speed;
+                return bullet.y > 0;
+            });
+            
+            // 衝突判定
+            game.bullets.forEach((bullet, bulletIndex) => {
+                game.enemies.forEach((enemy, enemyIndex) => {
+                    if (enemy.alive && 
+                        Math.abs(bullet.x - enemy.x) < 25 && 
+                        Math.abs(bullet.y - enemy.y) < 25) {
+                        enemy.alive = false;
+                        game.bullets.splice(bulletIndex, 1);
+                        game.score += 10;
+                        scoreElement.textContent = game.score;
+                    }
+                });
+            });
+            
+            // ゲームクリアチェック
+            const aliveEnemies = game.enemies.filter(enemy => enemy.alive);
+            if (aliveEnemies.length === 0) {
+                game.gameRunning = false;
+                alert('🎉 ゲームクリア！スコア: ' + game.score);
+                setupEnemies();
+                game.score = 0;
+                scoreElement.textContent = game.score;
+                game.gameRunning = true;
+            }
+        }
+        
+        // 描画
+        function draw() {
+            // 背景をクリア
+            ctx.fillStyle = '#000011';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 星を描画
+            ctx.fillStyle = 'white';
+            for (let i = 0; i < 50; i++) {
+                const x = (i * 17) % canvas.width;
+                const y = (i * 23) % canvas.height;
+                ctx.fillRect(x, y, 1, 1);
+            }
+            
+            // ゲームオブジェクトを描画
+            drawPlayer();
+            drawBullets();
+            
+            game.enemies.forEach(enemy => {
+                if (enemy.alive) {
+                    drawAlien(enemy.x, enemy.y, enemy.type);
+                }
+            });
+        }
+        
+        // ゲームループ
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // ゲーム開始
+        setupEnemies();
+        gameLoop();
+    </script>
+</body>
+</html>
